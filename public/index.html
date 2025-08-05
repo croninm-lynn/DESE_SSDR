@@ -1,57 +1,439 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Discipline Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
-    <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Student Discipline Data Analysis Dashboard</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+	<style>
+		.chart-container {
+			position: relative;
+			height: 400px;
+			margin: 20px 0;
+		}
+		.chart-container-small {
+			position: relative;
+			height: 300px;
+			margin: 20px 0;
+		}
+	</style>
 </head>
-<body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        // Paste your DisciplineAnalysisDashboard component code here
-        // Note: You'll need to modify the imports and file reading slightly
-        
-        const { useState, useEffect } = React;
-        const { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+<body class="bg-gray-50">
+	<div class="container mx-auto p-8">
+		<h1 class="text-3xl font-bold mb-2">Statewide Student Discipline Data Analysis</h1>
+		<p class="text-gray-600 mb-6">Analysis of discipline percentages across student groups and years</p>
+		
+		<div class="mb-6 flex gap-4">
+			<button onclick="showView('overview')" id="btn-overview" class="px-4 py-2 rounded bg-blue-500 text-white">
+				Overview by Category
+			</button>
+			<button onclick="showView('trends')" id="btn-trends" class="px-4 py-2 rounded bg-white text-gray-700 border">
+				Trends Over Time
+			</button>
+			<button onclick="showView('disparities')" id="btn-disparities" class="px-4 py-2 rounded bg-white text-gray-700 border">
+				Disparities Analysis
+			</button>
+		</div>
 
-        function DisciplineAnalysisDashboard() {
-            const [data, setData] = useState(null);
-            const [selectedView, setSelectedView] = useState('overview');
+		<div id="loading" class="text-center py-8">
+			<p>Loading data...</p>
+		</div>
 
-            useEffect(() => {
-                // Load CSV file
-                fetch('Updated_DESEMA_Discipline_Calculations.csv')
-                    .then(response => response.text())
-                    .then(text => {
-                        const parsed = Papa.parse(text, {
-                            header: true,
-                            dynamicTyping: true,
-                            skipEmptyLines: true
-                        });
-                        setData(parsed.data);
-                    })
-                    .catch(error => console.error('Error loading data:', error));
-            }, []);
+		<div id="error" class="hidden text-center py-8">
+			<p class="text-red-600">Error loading data. Please ensure Updated_DESEMA_Discipline_Calculations.csv is in the same directory.</p>
+		</div>
 
-            // Rest of your component code goes here...
-            // (Copy the rest from the artifact above)
-            
-            return (
-                <div className="p-8 bg-gray-50 min-h-screen">
-                    {/* Component JSX here */}
-                </div>
-            );
-        }
+		<!-- Overview View -->
+		<div id="overview" class="hidden space-y-6">
+			<div class="bg-blue-50 p-4 rounded-lg">
+				<p class="text-sm font-semibold">All Students Baseline (2023-24): <span id="baseline"></span>%</p>
+			</div>
 
-        // Render the component
-        ReactDOM.render(<DisciplineAnalysisDashboard />, document.getElementById('root'));
-    </script>
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Program/Status Groups</h2>
+				<div class="chart-container-small">
+					<canvas id="programChart"></canvas>
+				</div>
+			</div>
+
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Gender Groups</h2>
+				<div class="chart-container-small">
+					<canvas id="genderChart"></canvas>
+				</div>
+			</div>
+
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Race/Ethnicity Groups</h2>
+				<div class="chart-container">
+					<canvas id="raceChart"></canvas>
+				</div>
+			</div>
+		</div>
+
+		<!-- Trends View -->
+		<div id="trends" class="hidden">
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Discipline Rate Trends by Category (2021-22 to 2023-24)</h2>
+				<div class="chart-container">
+					<canvas id="trendsChart"></canvas>
+				</div>
+				<p class="text-sm text-gray-600 mt-4"><strong>Note:</strong> The black dashed line represents the "All Students" baseline for comparison.</p>
+			</div>
+		</div>
+
+		<!-- Disparities View -->
+		<div id="disparities" class="hidden space-y-6">
+			<div class="bg-blue-50 p-4 rounded-lg">
+				<p class="text-sm font-semibold">All Students Baseline (2023-24): <span id="baseline2"></span>%</p>
+				<p class="text-xs text-gray-600 mt-1">Positive values indicate higher discipline rates than average</p>
+			</div>
+
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Program/Status Group Disparities</h2>
+				<div class="chart-container-small">
+					<canvas id="programDisparityChart"></canvas>
+				</div>
+			</div>
+
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Gender Group Disparities</h2>
+				<div class="chart-container-small">
+					<canvas id="genderDisparityChart"></canvas>
+				</div>
+			</div>
+
+			<div class="bg-white p-6 rounded-lg shadow">
+				<h2 class="text-xl font-semibold mb-4">Race/Ethnicity Group Disparities</h2>
+				<div class="chart-container">
+					<canvas id="raceDisparityChart"></canvas>
+				</div>
+			</div>
+		</div>
+
+		<!-- Summary -->
+		<div id="summary" class="mt-8 bg-white p-6 rounded-lg shadow">
+			<h2 class="text-xl font-semibold mb-4">Summary of Key Findings by Category</h2>
+			<div class="space-y-4">
+				<div>
+					<h3 class="font-semibold text-lg text-blue-600">Program/Status Groups</h3>
+					<ul class="list-disc ml-6 mt-2 space-y-1">
+						<li>Students with disabilities have the highest discipline rate at 6.19% (+2.74 pp above average)</li>
+						<li>Low income students: 5.63% (+2.19 pp)</li>
+						<li>High needs students: 5.02% (+1.57 pp)</li>
+						<li>English Learners: 3.73% (+0.28 pp)</li>
+					</ul>
+				</div>
+				
+				<div>
+					<h3 class="font-semibold text-lg text-green-600">Gender Groups</h3>
+					<ul class="list-disc ml-6 mt-2 space-y-1">
+						<li>Male students: 4.44% (+0.99 pp above average)</li>
+						<li>Female students: 2.43% (-1.02 pp below average)</li>
+						<li>Gender ratio: Males disciplined at 1.8x the rate of females</li>
+					</ul>
+				</div>
+				
+				<div>
+					<h3 class="font-semibold text-lg text-yellow-600">Race/Ethnicity Groups</h3>
+					<ul class="list-disc ml-6 mt-2 space-y-1">
+						<li>Highest rates: African American/Black (6.14%, +2.69 pp) and Hispanic/Latino (5.19%, +1.75 pp)</li>
+						<li>Moderate rates: American Indian/Alaska Native (4.65%, +1.20 pp), Multi-race (3.87%, +0.42 pp)</li>
+						<li>Lowest rates: White (2.39%, -1.06 pp) and Asian (0.85%, -2.60 pp)</li>
+						<li>Largest disparity: 7.2x difference between highest (African American/Black) and lowest (Asian) groups</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		let allData = null;
+		let charts = {};
+
+		// Define groups
+		const programStatusGroups = ["English Learner", "Low income", "Low Income", "Students w/disabilities", "High needs"];
+		const genderGroups = ["Male", "Female"];
+		const raceEthnicityGroups = ["Amer. Ind. or Alaska Nat.", "Asian", "Afr. Amer./Black", "Hispanic/Latino", 
+									  "Multi-race, Non-Hisp./Lat.", "Nat. Haw. or Pacif. Isl.", "White"];
+
+		// Load and process data
+		async function loadData() {
+			try {
+				const response = await fetch('Updated_DESEMA_Discipline_Calculations.csv');
+				if (!response.ok) {
+					throw new Error('Failed to load CSV file');
+				}
+				const text = await response.text();
+				const parsed = Papa.parse(text, {
+					header: true,
+					dynamicTyping: true,
+					skipEmptyLines: true
+				});
+				
+				allData = parsed.data;
+				document.getElementById('loading').classList.add('hidden');
+				document.getElementById('summary').classList.remove('hidden');
+				processData();
+				showView('overview');
+			} catch (error) {
+				console.error('Error:', error);
+				document.getElementById('loading').classList.add('hidden');
+				document.getElementById('error').classList.remove('hidden');
+			}
+		}
+
+		function processData() {
+			// Get latest year data
+			const latestYearData = allData.filter(d => d.Year === "2023-24");
+			const allStudentsData = latestYearData.find(d => d['Student Group'] === "All Students");
+			const baseline = allStudentsData ? allStudentsData[' Percent of Students Disciplined'] : 0;
+			
+			document.getElementById('baseline').textContent = baseline.toFixed(2);
+			document.getElementById('baseline2').textContent = baseline.toFixed(2);
+
+			// Process data by groups
+			const programData = processGroupData(latestYearData, programStatusGroups);
+			const genderData = processGroupData(latestYearData, genderGroups);
+			const raceData = processGroupData(latestYearData, raceEthnicityGroups);
+
+			// Create charts
+			createBarChart('programChart', programData, '#3B82F6');
+			createBarChart('genderChart', genderData, '#10B981');
+			createBarChart('raceChart', raceData, '#F59E0B');
+
+			// Create disparity charts
+			createDisparityChart('programDisparityChart', programData, baseline, '#3B82F6');
+			createDisparityChart('genderDisparityChart', genderData, baseline, '#10B981');
+			createDisparityChart('raceDisparityChart', raceData, baseline, '#F59E0B');
+
+			// Create trends chart
+			createTrendsChart();
+		}
+
+		function processGroupData(data, groupList) {
+			return data
+				.filter(d => groupList.includes(d['Student Group']))
+				.map(d => ({
+					group: d['Student Group'] === "Low Income" ? "Low income" : d['Student Group'],
+					percent: d[' Percent of Students Disciplined']
+				}))
+				.filter((d, index, self) => self.findIndex(item => item.group === d.group) === index)
+				.sort((a, b) => b.percent - a.percent);
+		}
+
+		function createBarChart(canvasId, data, color) {
+			const ctx = document.getElementById(canvasId).getContext('2d');
+			
+			if (charts[canvasId]) {
+				charts[canvasId].destroy();
+			}
+			
+			charts[canvasId] = new Chart(ctx, {
+				type: 'bar',
+				data: {
+					labels: data.map(d => d.group),
+					datasets: [{
+						label: 'Percent Disciplined',
+						data: data.map(d => d.percent),
+						backgroundColor: color,
+						borderColor: color,
+						borderWidth: 1
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					scales: {
+						y: {
+							beginAtZero: true,
+							max: 7,
+							title: {
+								display: true,
+								text: 'Percent Disciplined'
+							}
+						},
+						x: {
+							ticks: {
+								autoSkip: false,
+								maxRotation: 45,
+								minRotation: 45
+							}
+						}
+					},
+					plugins: {
+						legend: {
+							display: false
+						},
+						tooltip: {
+							callbacks: {
+								label: function(context) {
+									return context.parsed.y.toFixed(2) + '%';
+								}
+							}
+						}
+					}
+				}
+			});
+		}
+
+		function createDisparityChart(canvasId, data, baseline, color) {
+			const ctx = document.getElementById(canvasId).getContext('2d');
+			
+			if (charts[canvasId]) {
+				charts[canvasId].destroy();
+			}
+			
+			const disparityData = data.map(d => ({
+				group: d.group,
+				disparity: d.percent - baseline
+			}));
+			
+			charts[canvasId] = new Chart(ctx, {
+				type: 'bar',
+				data: {
+					labels: disparityData.map(d => d.group),
+					datasets: [{
+						label: 'Percentage Point Difference',
+						data: disparityData.map(d => d.disparity),
+						backgroundColor: disparityData.map(d => d.disparity > 0 ? '#DC2626' : '#10B981'),
+						borderColor: disparityData.map(d => d.disparity > 0 ? '#DC2626' : '#10B981'),
+						borderWidth: 1
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					scales: {
+						y: {
+							title: {
+								display: true,
+								text: 'Percentage Point Difference'
+							}
+						},
+						x: {
+							ticks: {
+								autoSkip: false,
+								maxRotation: 45,
+								minRotation: 45
+							}
+						}
+					},
+					plugins: {
+						legend: {
+							display: false
+						},
+						tooltip: {
+							callbacks: {
+								label: function(context) {
+									const value = context.parsed.y;
+									return (value > 0 ? '+' : '') + value.toFixed(2) + ' pp';
+								}
+							}
+						}
+					}
+				}
+			});
+		}
+
+		function createTrendsChart() {
+			const ctx = document.getElementById('trendsChart').getContext('2d');
+			
+			if (charts.trendsChart) {
+				charts.trendsChart.destroy();
+			}
+			
+			// Process trend data
+			const years = ["2021-22", "2022-23", "2023-24"];
+			const selectedGroups = ["All Students", "Students w/disabilities", "English Learner", "Male", "Female", 
+								   "Afr. Amer./Black", "Hispanic/Latino", "White", "Asian"];
+			
+			const datasets = selectedGroups.map((group, index) => {
+				const groupData = allData.filter(d => d['Student Group'] === group);
+				const data = years.map(year => {
+					const yearData = groupData.find(d => d.Year === year);
+					return yearData ? yearData[' Percent of Students Disciplined'] : null;
+				});
+				
+				const colors = ['#000000', '#3B82F6', '#60A5FA', '#10B981', '#34D399', 
+							   '#DC2626', '#F59E0B', '#8B5CF6', '#EC4899'];
+				
+				return {
+					label: group,
+					data: data,
+					borderColor: colors[index],
+					backgroundColor: colors[index],
+					borderWidth: group === "All Students" ? 3 : 2,
+					borderDash: group === "All Students" ? [5, 5] : [],
+					tension: 0.1,
+					fill: false
+				};
+			});
+			
+			charts.trendsChart = new Chart(ctx, {
+				type: 'line',
+				data: {
+					labels: years,
+					datasets: datasets
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					scales: {
+						y: {
+							beginAtZero: true,
+							max: 8,
+							title: {
+								display: true,
+								text: 'Percent Disciplined'
+							}
+						}
+					},
+					plugins: {
+						legend: {
+							position: 'bottom',
+							labels: {
+								boxWidth: 12,
+								padding: 10
+							}
+						},
+						tooltip: {
+							callbacks: {
+								label: function(context) {
+									return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+								}
+							}
+						}
+					}
+				}
+			});
+		}
+
+		function showView(view) {
+			// Hide all views
+			document.getElementById('overview').classList.add('hidden');
+			document.getElementById('trends').classList.add('hidden');
+			document.getElementById('disparities').classList.add('hidden');
+			
+			// Show selected view
+			document.getElementById(view).classList.remove('hidden');
+			
+			// Update button styles
+			const buttons = ['overview', 'trends', 'disparities'];
+			buttons.forEach(btn => {
+				const button = document.getElementById(`btn-${btn}`);
+				if (btn === view) {
+					button.className = 'px-4 py-2 rounded bg-blue-500 text-white';
+				} else {
+					button.className = 'px-4 py-2 rounded bg-white text-gray-700 border';
+				}
+			});
+		}
+
+		// Start loading data when page loads
+		window.addEventListener('DOMContentLoaded', loadData);
+	</script>
 </body>
 </html>
